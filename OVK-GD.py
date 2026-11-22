@@ -18,13 +18,16 @@ Uso:
   python OVK-GD.py                 -> menu interactivo (recomendado)
   python OVK-GD.py instalar        -> instalar herramientas
   python OVK-GD.py actualizar      -> actualizar herramientas
-  python OVK-GD.py proyecto        -> configurar un proyecto
+  python OVK-GD.py abrir RUTA      -> abrir un proyecto local con su URL guardada
+  python OVK-GD.py proyecto        -> crear o descargar un proyecto por primera vez
   python OVK-GD.py sincronizar     -> guardar, descargar y subir cambios
   python OVK-GD.py compilar        -> generar el PDF
   python OVK-GD.py auto            -> sincronizar cada cierto tiempo
   python OVK-GD.py diagnostico     -> revisar que todo este instalado
   python OVK-GD.py historial       -> ver commits y compilar versiones anteriores
   python OVK-GD.py compilar-version COMMIT -> generar el PDF de un commit
+  python OVK-GD.py descargar-version COMMIT --principal -> guardar y compilar esa copia
+  python OVK-GD.py principal       -> elegir proyecto y archivo principal
   Agrega --simular para ver los comandos de instalacion sin ejecutarlos.
 """
 import argparse
@@ -38,14 +41,17 @@ import subprocess
 import sys
 import tempfile
 import time
+import uuid
 import zipfile
 from pathlib import Path, PurePosixPath
+from urllib.parse import urlsplit, urlunsplit
 
 APP_NAME = "OVK-GD"
 AUTHOR = "Dr. Gerardo Diaz"
 SYSTEM = platform.system()  # "Windows", "Darwin" (Mac) o "Linux"
 APP_DIR = Path.home() / ".ovk-gd"
 CONFIG_FILE = APP_DIR / "proyectos.json"
+PROJECT_FILE_NAME = "OVK-GD.proyecto.json"
 BASE_PROYECTOS = Path.home() / "Proyectos_OVK-GD"
 SIMULAR = False  # si es True, no se ejecutan instalaciones (solo se muestran)
 
@@ -430,18 +436,107 @@ def registrar_proyecto(nombre, ruta):
     guardar_proyectos(lista)
 
 
-def elegir_proyecto():
+def leer_datos_proyecto(ruta):
+    archivo = Path(ruta) / PROJECT_FILE_NAME
+    if not archivo.exists():
+        return {}
+    try:
+        datos = json.loads(archivo.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        raise ValueError("No se pudo leer {}: {}".format(archivo, e))
+    if not isinstance(datos, dict) or any(
+            clave in datos and not isinstance(datos[clave], str)
+            for clave in ("name", "url", "remote", "main")):
+        raise ValueError("{} debe contener nombre, URL y archivo principal como texto.".format(archivo))
+    if datos.get("main"):
+        datos["main"] = datos["main"].replace("\\", "/")
+    return datos
+
+
+def conexion_git(ruta, preferido="origin"):
+    """Lee la conexion del repositorio exacto, sin acceder a la red."""
+    ruta = Path(ruta).resolve()
+    codigo, raiz = git(["rev-parse", "--show-toplevel"], ruta)
+    if codigo != 0 or Path(raiz).resolve() != ruta:
+        return None, ""
+    codigo, salida = git(["remote"], ruta)
+    remotos = salida.split() if codigo == 0 else []
+    if not remotos:
+        return None, ""
+    remoto = preferido if preferido in remotos else ("origin" if "origin" in remotos else remotos[0])
+    codigo, url = git(["remote", "get-url", remoto], ruta)
+    return (remoto, url.strip()) if codigo == 0 else (None, "")
+
+
+def url_para_guardar(url):
+    """Guarda el enlace del proyecto sin credenciales HTTP incrustadas."""
+    if url.startswith(("https://", "http://")):
+        partes = urlsplit(url)
+        return urlunsplit((partes.scheme, partes.netloc.rsplit("@", 1)[-1], partes.path, partes.query, partes.fragment))
+    return url
+
+
+def guardar_datos_proyecto(proyecto, principal=None):
+    ruta = Path(proyecto["path"]).resolve()
+    anteriores = leer_datos_proyecto(ruta)
+    remoto, url = conexion_git(ruta, anteriores.get("remote", "origin"))
+    datos = {"name": proyecto["name"],
+             "url": url_para_guardar(url or proyecto.get("url") or anteriores.get("url", "")),
+             "remote": remoto or anteriores.get("remote", "origin"),
+             "main": (principal or proyecto.get("main") or anteriores.get("main", "")).replace("\\", "/")}
+    (ruta / PROJECT_FILE_NAME).write_text(json.dumps(datos, indent=2, ensure_ascii=False), encoding="utf-8")
+    return datos
+
+
+def restaurar_conexion_guardada(ruta, datos):
+    """Reutiliza el enlace guardado si Git no tiene ningun remoto. No descarga archivos."""
+    url = datos.get("url", "")
+    if not url:
+        return
+    codigo, raiz = git(["rev-parse", "--show-toplevel"], ruta)
+    if codigo != 0 or Path(raiz).resolve() != Path(ruta).resolve():
+        return
+    codigo, remotos = git(["remote"], ruta)
+    if codigo != 0 or remotos.strip():
+        return
+    remoto = datos.get("remote") or "origin"
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]*", remoto):
+        remoto = "origin"
+    codigo, salida = git(["remote", "add", "--", remoto, url], ruta)
+    if codigo != 0:
+        raise ValueError("No se pudo reutilizar la URL guardada:\n" + salida)
+
+
+def obtener_proyecto_principal():
+    try:
+        datos = json.loads((APP_DIR / "principal.json").read_text(encoding="utf-8"))
+        if (isinstance(datos, dict) and isinstance(datos.get("path"), str)
+                and isinstance(datos.get("main"), str) and Path(datos["path"]).is_dir()):
+            return datos
+    except (OSError, ValueError):
+        pass
+    return None
+
+
+def elegir_proyecto(usar_principal=True):
+    if usar_principal:
+        principal = obtener_proyecto_principal()
+        if principal:
+            return principal
     lista = [p for p in cargar_proyectos() if Path(p["path"]).exists()]
     if not lista:
-        aviso("Todavia no hay proyectos. Usa la opcion 'Configurar un proyecto'.")
+        aviso("Todavia no hay proyectos. Usa la opcion 3 para abrir una carpeta o la 11 para crear un proyecto.")
         return None
     if len(lista) == 1:
         return lista[0]
     say("Proyectos disponibles:")
     for i, p in enumerate(lista, 1):
         say("  {}) {}  ({})".format(i, p["name"], p["path"]))
+    say("  0) Cancelar")
     while True:
         n = ask("Elige el numero del proyecto", "1")
+        if n == "0":
+            return None
         if n.isdigit() and 1 <= int(n) <= len(lista):
             return lista[int(n) - 1]
         say("  Numero no valido.")
@@ -489,7 +584,7 @@ def crear_archivos_base(ruta):
         ok("Creado .vscode/settings.json (compila el PDF al guardar)")
 
 
-def detectar_principal(ruta):
+def detectar_principal(ruta, elegir=False):
     """Busca el .tex principal (el que contiene \\documentclass)."""
     ruta = Path(ruta)
     candidatos = []
@@ -503,47 +598,180 @@ def detectar_principal(ruta):
             pass
     if not candidatos:
         return None
-    for c in candidatos:
-        if c.name.lower() == "main.tex":
-            return str(c)
+    if not elegir:
+        for c in candidatos:
+            if c.name.lower() == "main.tex":
+                return str(c)
     if len(candidatos) == 1:
         return str(candidatos[0])
     say("Encontre varios archivos principales:")
     for i, c in enumerate(candidatos, 1):
         say("  {}) {}".format(i, c))
+    if elegir:
+        say("  0) Cancelar")
     while True:
         n = ask("Cual quieres compilar", "1")
+        if elegir and n == "0":
+            return None
         if n.isdigit() and 1 <= int(n) <= len(candidatos):
             return str(candidatos[int(n) - 1])
 
 
+def establecer_proyecto_principal(proyecto, principal=None):
+    ruta = Path(proyecto["path"]).resolve()
+    try:
+        configuracion = leer_datos_proyecto(ruta)
+    except ValueError as e:
+        fallo(str(e))
+        return False
+    if principal is None:
+        preferido = proyecto.get("main") or configuracion.get("main")
+        if preferido:
+            try:
+                archivo_guardado = (ruta / preferido).resolve()
+                archivo_guardado.relative_to(ruta)
+                if archivo_guardado.is_file() and archivo_guardado.suffix.lower() == ".tex":
+                    principal = preferido
+            except (OSError, ValueError):
+                pass
+        principal = principal or detectar_principal(ruta, elegir=True)
+    if not principal:
+        aviso("No se selecciono un archivo principal. La seleccion actual se conserva.")
+        return False
+    try:
+        archivo = (ruta / principal).resolve()
+        relativo = archivo.relative_to(ruta)
+        if archivo.suffix.lower() != ".tex" or not archivo.is_file():
+            raise ValueError("El archivo principal debe ser un .tex existente.")
+        datos = {"name": proyecto["name"], "path": str(ruta), "main": str(relativo)}
+        configuracion = guardar_datos_proyecto(datos, str(relativo))
+        datos["url"] = configuracion["url"]
+        APP_DIR.mkdir(parents=True, exist_ok=True)
+        registrar_proyecto(datos["name"], ruta)
+        (APP_DIR / "principal.json").write_text(json.dumps(datos, indent=2, ensure_ascii=False), encoding="utf-8")
+    except (OSError, ValueError) as e:
+        fallo("No se pudo seleccionar el proyecto principal: {}".format(e))
+        return False
+    ok("Proyecto principal: {}".format(datos["name"]))
+    say("  Archivo: {}".format(archivo))
+    say("  La opcion 5 compilara este archivo. Usa la opcion 10 para cambiar de proyecto.")
+    return True
+
+
+def explorar_carpeta():
+    ventana = None
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+        ventana = tk.Tk()
+        ventana.withdraw()
+        return filedialog.askdirectory(title="OVK-GD - Abrir carpeta del proyecto", parent=ventana)
+    except Exception:
+        aviso("No se pudo abrir el selector. Pega la ruta de la carpeta en la terminal.")
+        return ""
+    finally:
+        if ventana is not None:
+            ventana.destroy()
+
+
+def ruta_local(texto):
+    texto = str(texto).strip()
+    if len(texto) >= 2 and texto[0] == texto[-1] and texto[0] in ("\"", "'"):
+        texto = texto[1:-1]
+    return Path(os.path.expandvars(texto)).expanduser().resolve()
+
+
+def abrir_proyecto_local(ruta=None):
+    titulo("Abrir proyecto desde la PC")
+    if ruta is None:
+        ruta = ask("Carpeta, archivo .tex o {} (E para explorar, 0 para cancelar)".format(PROJECT_FILE_NAME))
+        if ruta.lower() == "e":
+            ruta = explorar_carpeta()
+        if not ruta or ruta == "0":
+            return None
+    try:
+        seleccion = ruta_local(ruta)
+        principal = None
+        if seleccion.is_file():
+            if seleccion.suffix.lower() == ".tex":
+                principal = seleccion
+                carpeta = seleccion.parent
+                for candidata in (carpeta,) + tuple(carpeta.parents):
+                    if (candidata / PROJECT_FILE_NAME).is_file() or (candidata / ".git").exists():
+                        carpeta = candidata
+                        break
+            elif seleccion.name == PROJECT_FILE_NAME:
+                carpeta = seleccion.parent
+            else:
+                raise ValueError("Selecciona una carpeta, un archivo .tex o {}.".format(PROJECT_FILE_NAME))
+        elif seleccion.is_dir():
+            carpeta = seleccion
+        else:
+            raise ValueError("La ubicacion no existe. Elige la carpeta donde ya estan tus archivos.")
+        datos = leer_datos_proyecto(carpeta)
+        restaurar_conexion_guardada(carpeta, datos)
+        proyecto = {"name": datos.get("name") or carpeta.name, "path": str(carpeta)}
+        if principal is not None:
+            principal = str(principal.relative_to(carpeta))
+        if not establecer_proyecto_principal(proyecto, principal):
+            return None
+        proyecto = obtener_proyecto_principal()
+        ok("Proyecto abierto desde su carpeta local.")
+        if proyecto.get("url"):
+            say("  URL del proyecto: {}".format(proyecto["url"]))
+        say("  Configuracion: {}".format(carpeta / PROJECT_FILE_NAME))
+        return proyecto
+    except (OSError, ValueError) as e:
+        fallo("No se pudo abrir el proyecto: {}".format(e))
+        return None
+
+
+def seleccionar_principal():
+    titulo("Elegir proyecto y archivo principal")
+    proyecto = elegir_proyecto(usar_principal=False)
+    if proyecto:
+        principal = detectar_principal(proyecto["path"], elegir=True)
+        return establecer_proyecto_principal(proyecto, principal) if principal else False
+    return False
+
+
 def _iniciar_repo(ruta):
-    git(["init"], ruta)
-    git(["symbolic-ref", "HEAD", "refs/heads/main"], ruta)  # la rama se llamara 'main'
+    for args in (["init"], ["symbolic-ref", "HEAD", "refs/heads/main"]):
+        codigo, salida = git(args, ruta)
+        if codigo != 0:
+            fallo("No se pudo preparar Git en la carpeta seleccionada:\n" + salida)
+            return False
+    return True
 
 
 def configurar_proyecto():
-    titulo("Configurar un proyecto")
+    titulo("Crear o descargar un proyecto")
+    say("1) Descargar de GitHub/GitLab por primera vez")
+    say("2) Crear un proyecto nuevo")
+    say("3) Abrir una carpeta que ya tengo en mi computadora")
+    say("4) Conectar una carpeta local a GitHub/GitLab")
+    say("0) Volver")
+    opcion = ask("Elige una opcion", "0")
+    if opcion == "3":
+        return abrir_proyecto_local()
+    if opcion not in ("1", "2", "4"):
+        return None
     if not shutil.which("git"):
         fallo("Git no esta instalado. Ejecuta primero 'Instalar herramientas'.")
         return None
-    say("1) Descargar un proyecto que ya existe (tengo un enlace de GitHub/GitLab)")
-    say("2) Crear un proyecto nuevo")
-    say("3) Usar una carpeta que ya tengo en mi computadora")
-    opcion = ask("Elige 1, 2 o 3", "1")
-    BASE_PROYECTOS.mkdir(parents=True, exist_ok=True)
 
     if opcion == "1":
         url = ""
         while not url:
             url = ask("Pega el enlace del repositorio (termina en .git o es la direccion de la pagina)")
         sugerido = nombre_seguro(url.rstrip("/").split("/")[-1].replace(".git", ""))
-        destino = Path(ask("Carpeta donde guardarlo", str(BASE_PROYECTOS / sugerido))).expanduser()
-        if destino.exists() and any(destino.iterdir()):
-            fallo("Esa carpeta ya existe y no esta vacia. Elige otra.")
+        destino = ruta_local(ask("Carpeta donde guardarlo", str(BASE_PROYECTOS / sugerido)))
+        if destino.exists() and (not destino.is_dir() or any(destino.iterdir())):
+            fallo("Esa ubicacion ya tiene contenido. Usa la opcion 3 para abrirla o elige otra para descargar.")
             return None
         if not ensure_identity():
             return None
+        destino.parent.mkdir(parents=True, exist_ok=True)
         say("\nDescargando (si te pide usuario y contrasena, mira el manual: se usa un 'token')...")
         if run_live(["git", "clone", url, str(destino)]) != 0:
             fallo("No se pudo descargar. Revisa el enlace y tus permisos.")
@@ -552,31 +780,48 @@ def configurar_proyecto():
 
     elif opcion == "2":
         nombre = nombre_seguro(ask("Nombre del proyecto (sin espacios, por ejemplo tesis)", "mi_documento"))
-        destino = Path(ask("Carpeta donde crearlo", str(BASE_PROYECTOS / nombre))).expanduser()
+        destino = ruta_local(ask("Carpeta donde crearlo", str(BASE_PROYECTOS / nombre)))
+        if destino.exists() and (not destino.is_dir() or any(destino.iterdir())):
+            fallo("Esa ubicacion ya tiene contenido. Usa la opcion 3 para abrirla o elige otra para crear.")
+            return None
         destino.mkdir(parents=True, exist_ok=True)
         if not (destino / ".git").exists():
-            _iniciar_repo(destino)
+            if not _iniciar_repo(destino):
+                return None
         if not (destino / "main.tex").exists():
             (destino / "main.tex").write_text(PLANTILLA_TEX, encoding="utf-8")
             ok("Creado main.tex de ejemplo")
         url = ask("Enlace del repositorio vacio donde se compartira (Enter para omitir)")
         if url:
-            git(["remote", "add", "origin", url], destino)
+            codigo, salida = git(["remote", "add", "--", "origin", url], destino)
+            if codigo != 0:
+                fallo("No se pudo guardar la conexion del proyecto:\n" + salida)
+                return None
 
-    else:
-        destino = Path(ask("Ruta completa de la carpeta")).expanduser()
+    elif opcion == "4":
+        seleccion = ask("Carpeta que deseas conectar (0 para cancelar)")
+        if not seleccion or seleccion == "0":
+            return None
+        destino = ruta_local(seleccion)
         if not destino.is_dir():
             fallo("Esa carpeta no existe.")
             return None
-        nombre = nombre_seguro(destino.name)
-        if not (destino / ".git").exists():
-            _iniciar_repo(destino)
-            ok("Carpeta convertida en proyecto Git")
-        _, remotos = git(["remote"], destino)
-        if not remotos.strip():
-            url = ask("Enlace del repositorio donde se compartira (Enter para omitir)")
+        try:
+            datos = leer_datos_proyecto(destino)
+        except ValueError as e:
+            fallo(str(e))
+            return None
+        nombre = datos.get("name") or destino.name
+        if not (destino / ".git").exists() and not _iniciar_repo(destino):
+            return None
+        remoto, url = conexion_git(destino, datos.get("remote", "origin"))
+        if not url:
+            url = datos.get("url") or ask("Enlace del repositorio donde se compartira (Enter para omitir)")
             if url:
-                git(["remote", "add", "origin", url], destino)
+                codigo, salida = git(["remote", "add", "--", "origin", url], destino)
+                if codigo != 0:
+                    fallo("No se pudo guardar la conexion:\n" + salida)
+                    return None
 
     if not ensure_identity(destino):
         return None
@@ -584,6 +829,12 @@ def configurar_proyecto():
     registrar_proyecto(nombre, destino)
     ok("Proyecto '{}' registrado en {}".format(nombre, destino))
     proyecto = {"name": nombre, "path": str(destino)}
+    try:
+        guardar_datos_proyecto(proyecto)
+    except (OSError, ValueError) as e:
+        fallo("No se pudo guardar la configuracion del proyecto: {}".format(e))
+        return None
+    establecer_proyecto_principal(proyecto)
     if yes("¿Sincronizar ahora (guardar y subir lo que hay)?", True):
         sincronizar(proyecto)
     return proyecto
@@ -707,7 +958,7 @@ def sincronizar(proyecto, auto=False, mensaje=None):
     if not remotos:
         aviso("Este proyecto no tiene servidor remoto, asi que los cambios solo estan en tu computadora.")
         say("  Para compartirlo, crea un repositorio vacio en GitHub y agrega su enlace:")
-        say("  git remote add origin <enlace>   (o vuelve a usar 'Configurar un proyecto')")
+        say("  git remote add origin <enlace>   (el enlace quedara guardado al abrir la carpeta con la opcion 3)")
         return True
     remoto = "origin" if "origin" in remotos else remotos[0]
 
@@ -814,9 +1065,17 @@ def compilar(proyecto, abrir=True, principal=None):
         fallo("No encontre 'latexmk'. Ejecuta 'Instalar herramientas' (o cierra y abre esta ventana "
               "si acabas de instalarlo).")
         return False
-    principal = principal or detectar_principal(ruta)
+    principal = principal or proyecto.get("main") or detectar_principal(ruta)
     if not principal:
         fallo("No encontre ningun archivo .tex con \\documentclass en el proyecto.")
+        return False
+    try:
+        archivo = (ruta / principal).resolve()
+        archivo.relative_to(ruta.resolve())
+        if not archivo.is_file() or archivo.suffix.lower() != ".tex":
+            raise ValueError("El archivo ya no existe o no es un .tex.")
+    except (OSError, ValueError) as e:
+        fallo("Archivo principal no valido: {}. Usa la opcion 10 para elegirlo.".format(e))
         return False
     say("Compilando {} ...\n".format(principal))
     codigo = run_live([latexmk, "-cd", "-pdf", "-interaction=nonstopmode", "-halt-on-error",
@@ -958,6 +1217,114 @@ def exportar_version(proyecto, revision):
         return None
 
 
+def descargar_version(proyecto, revision, destino=None, usar_principal=False):
+    """Crea una copia Git independiente en el commit elegido, en una rama propia."""
+    ruta = Path(proyecto["path"]).resolve()
+    codigo, commit = git(["rev-parse", "--verify", "--end-of-options", revision + "^{commit}"], ruta)
+    commit = commit.strip()
+    if codigo != 0 or not re.fullmatch(r"[0-9a-f]{40,64}", commit):
+        fallo("No se encontro ese commit. Actualiza el historial y vuelve a intentarlo.")
+        return None
+    if destino is None:
+        sugerido = BASE_PROYECTOS / (nombre_seguro(proyecto["name"])[:60] + "-" + commit[:10])
+        destino = ask("Carpeta NUEVA donde guardar la version (0 para cancelar)", str(sugerido))
+        if destino == "0":
+            return None
+    try:
+        destino = Path(destino).expanduser().resolve()
+        if destino.exists():
+            fallo("La carpeta de destino ya existe. Elige otra para conservar su contenido.")
+            return None
+        try:
+            destino.relative_to(ruta)
+        except ValueError:
+            pass
+        else:
+            fallo("Elige una carpeta fuera del proyecto de origen.")
+            return None
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        say("Guardando una copia independiente de {} en {}...".format(commit[:10], destino))
+        if run_live(["git", "clone", "--no-hardlinks", "--no-checkout", "--", str(ruta), str(destino)]) != 0:
+            fallo("No se pudo crear la copia. Revisa el mensaje y la carpeta de destino.")
+            return None
+
+        def preparar(args):
+            codigo, salida = git(args, destino)
+            if codigo != 0:
+                raise ValueError("Git no pudo preparar la copia:\n" + salida)
+
+        # El clon local no debe conservar un remoto que apunte al proyecto de origen.
+        preparar(["remote", "remove", "origin"])
+        codigo, nombres = git(["remote"], ruta)
+        remotos = nombres.split() if codigo == 0 else []
+        if remotos:
+            remoto = "origin" if "origin" in remotos else remotos[0]
+            codigo, url = git(["remote", "get-url", remoto], ruta)
+            if codigo != 0:
+                raise ValueError("No se pudo leer el remoto del proyecto de origen.")
+
+            def resolver_url(valor):
+                valor = valor.strip()
+                if "://" not in valor and not re.match(r"^[^/\\]+:", valor):
+                    local = Path(valor).expanduser()
+                    if not local.is_absolute():
+                        local = ruta / local
+                    if local.exists():
+                        return str(local.resolve())
+                return valor
+
+            preparar(["remote", "add", "origin", resolver_url(url)])
+            codigo, push_url = git(["remote", "get-url", "--push", remoto], ruta)
+            if codigo == 0 and push_url.strip() != url.strip():
+                preparar(["remote", "set-url", "--push", "origin", resolver_url(push_url)])
+        if git(["cat-file", "-e", commit + "^{commit}"], destino)[0] != 0:
+            preparar(["fetch", "--no-tags", str(ruta), commit])
+        rama = "ovk-version-{}-{}".format(commit[:10], uuid.uuid4().hex[:8])
+        preparar(["checkout", "-b", rama, commit])
+        copia = {"name": "{} @ {}".format(proyecto["name"], commit[:10]),
+                 "path": str(destino), "commit": commit, "rama": rama}
+        guardar_datos_proyecto(copia)
+        registrar_proyecto(copia["name"], destino)
+        ok("Version guardada en: {}".format(destino))
+        say("  Puedes editarla y compilarla. Se conserva su historial Git.")
+        say("  La sincronizacion de esta copia utiliza la rama {}.".format(rama))
+        copia["principal_establecido"] = False
+        if usar_principal:
+            copia["principal_establecido"] = establecer_proyecto_principal(copia)
+        else:
+            say("  Usa la opcion 10 para elegir esta copia como proyecto principal.")
+        return copia
+    except (OSError, ValueError) as e:
+        fallo("No se pudo terminar la descarga: {}".format(e))
+        if "destino" in locals():
+            say("  Destino solicitado: {}".format(destino))
+        return None
+
+
+def acciones_version(proyecto, version):
+    while True:
+        titulo("Version del documento: {}".format(version["corto"]))
+        say("{} | {}".format(texto_terminal(version["autor"]), version["fecha"]))
+        say(texto_terminal(version["mensaje"]))
+        say("\n 1) Compilar y ver su PDF")
+        say(" 2) Descargar esta version a una carpeta local")
+        say(" 3) Descargar y usar como proyecto principal de compilacion")
+        say(" 0) Volver al historial")
+        opcion = ask("Elige una opcion", "0")
+        if opcion == "0":
+            return False
+        if opcion == "1":
+            compilar_version(proyecto, version["commit"])
+            pausa()
+        elif opcion in ("2", "3"):
+            copia = descargar_version(proyecto, version["commit"], usar_principal=opcion == "3")
+            if copia and copia.get("principal_establecido"):
+                return True
+            pausa()
+        else:
+            aviso("Opcion no valida.")
+
+
 def compilar_version(proyecto, revision):
     """Genera un PDF identificado por commit; no modifica HEAD, indice ni archivos actuales."""
     refresh_path()
@@ -1007,7 +1374,7 @@ def historial(proyecto, cantidad=10, actualizar=False):
             say("     Autor: {} | Fecha: {}".format(texto_terminal(version["autor"]), version["fecha"]))
         if len(versiones) < 6:
             aviso("Hay menos de 6 commits disponibles. Se muestran todos los encontrados.")
-        say("\nEscribe el NUMERO del commit para compilar su PDF en una copia independiente.")
+        say("\nEscribe el NUMERO del commit para ver su PDF, descargarlo o usarlo como principal.")
         say(" M) Mostrar 10 commits mas")
         say(" R) Actualizar desde GitHub/GitLab y ver la rama remota")
         say(" L) Ver el historial de la rama local")
@@ -1024,8 +1391,8 @@ def historial(proyecto, cantidad=10, actualizar=False):
         elif opcion == "l":
             referencia = "HEAD"
         elif opcion.isdigit() and 1 <= int(opcion) <= len(versiones):
-            compilar_version(proyecto, versiones[int(opcion) - 1]["commit"])
-            pausa()
+            if acciones_version(proyecto, versiones[int(opcion) - 1]):
+                return
         else:
             aviso("Opcion no valida.")
 
@@ -1044,25 +1411,37 @@ def menu():
     acciones = {
         "1": lambda: instalar(False),
         "2": lambda: instalar(True),
-        "3": configurar_proyecto,
+        "3": abrir_proyecto_local,
         "4": lambda: con_proyecto(sincronizar),
         "5": lambda: con_proyecto(compilar),
         "6": lambda: con_proyecto(abrir_vscode),
         "7": lambda: con_proyecto(sincronizacion_automatica),
         "8": diagnostico,
         "9": lambda: con_proyecto(historial),
+        "10": seleccionar_principal,
+        "11": configurar_proyecto,
     }
     while True:
-        titulo("LaTeX Colaborativo")
+        titulo("LaTeX en equipo")
+        principal = obtener_proyecto_principal()
+        if principal:
+            say(" Principal: {} | {}".format(principal["name"], principal["main"]))
+            say(" Carpeta: {}\n".format(principal["path"]))
+            if principal.get("url"):
+                say(" URL: {}\n".format(principal["url"]))
+        else:
+            say(" Proyecto principal: sin seleccionar (opcion 10).\n")
         say(" 1) Instalar herramientas (primera vez)")
         say(" 2) Actualizar herramientas")
-        say(" 3) Configurar un proyecto (descargar, crear o usar una carpeta)")
+        say(" 3) Abrir un proyecto desde una carpeta de la PC")
         say(" 4) Sincronizar proyecto (guardar, descargar y subir cambios)")
         say(" 5) Compilar PDF")
         say(" 6) Abrir proyecto en VS Code")
         say(" 7) Sincronizacion automatica cada cierto tiempo")
         say(" 8) Diagnostico (¿esta todo instalado?)")
-        say(" 9) Historial: versiones anteriores y compilar su PDF")
+        say(" 9) Historial: PDF, descargar versiones y elegir principal")
+        say("10) Elegir proyecto y archivo principal de compilacion")
+        say("11) Crear un proyecto nuevo o descargar de GitHub")
         say(" 0) Salir")
         eleccion = ask("\nElige una opcion", "").strip()
         if eleccion == "0":
@@ -1103,6 +1482,8 @@ def main():
     sub.add_parser("instalar")
     sub.add_parser("actualizar")
     sub.add_parser("proyecto")
+    a = sub.add_parser("abrir", help="abrir una carpeta o un archivo de proyecto local")
+    a.add_argument("ruta", nargs="?", help="carpeta, archivo .tex o archivo de proyecto")
     s = sub.add_parser("sincronizar")
     s.add_argument("--mensaje", "-m", help="descripcion de tus cambios")
     s.add_argument("--auto", action="store_true", help="sin preguntas (para tareas automaticas)")
@@ -1114,6 +1495,11 @@ def main():
     h.add_argument("--actualizar", action="store_true", help="descargar referencias remotas sin mezclar archivos")
     c = sub.add_parser("compilar-version", help="compilar un commit en una copia independiente")
     c.add_argument("commit", help="identificador del commit guardado en Git")
+    d = sub.add_parser("descargar-version", help="guardar un commit como proyecto local independiente")
+    d.add_argument("commit", help="identificador del commit")
+    d.add_argument("--destino", help="carpeta nueva donde guardar la copia")
+    d.add_argument("--principal", action="store_true", help="usar la copia para las compilaciones habituales")
+    sub.add_parser("principal", help="elegir proyecto y archivo principal de compilacion")
     args = parser.parse_args()
     SIMULAR = args.simular
 
@@ -1128,8 +1514,12 @@ def main():
         instalar(True)
     elif args.comando == "proyecto":
         configurar_proyecto()
+    elif args.comando == "abrir":
+        return 0 if abrir_proyecto_local(args.ruta) else 1
     elif args.comando == "diagnostico":
         diagnostico()
+    elif args.comando == "principal":
+        return 0 if seleccionar_principal() else 1
     else:
         proyecto = elegir_proyecto()
         if not proyecto:
@@ -1142,6 +1532,9 @@ def main():
             historial(proyecto, args.cantidad, args.actualizar)
         if args.comando == "compilar-version":
             return 0 if compilar_version(proyecto, args.commit) else 1
+        if args.comando == "descargar-version":
+            copia = descargar_version(proyecto, args.commit, args.destino, args.principal)
+            return 0 if copia and (not args.principal or copia.get("principal_establecido")) else 1
         if args.comando == "auto":
             sincronizacion_automatica(proyecto)
     return 0

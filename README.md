@@ -30,13 +30,15 @@ La compilación se ejecuta localmente mediante `latexmk` y tu distribución de L
 | Función | Para qué sirve |
 |---|---|
 | Instalar y actualizar | Preparar Git, LaTeX y, donde se automatiza, Visual Studio Code. |
-| Configurar proyectos | Descargar un repositorio, crear un documento o registrar una carpeta existente. |
+| Abrir un proyecto local | Utilizar la carpeta de la PC y reutilizar su URL guardada. |
+| Crear o descargar proyectos | Preparar un documento nuevo o clonar un repositorio por primera vez. |
 | Sincronizar | Guardar cambios en Git, incorporar los del equipo y subir los tuyos. |
 | Compilar PDF | Ejecutar `latexmk` con `pdflatex` y mostrar el resultado. |
 | Abrir en VS Code | Editar con LaTeX Workshop y compilar al guardar. |
 | Sincronizar periódicamente | Repetir la sincronización mientras la aplicación permanece abierta. |
 | Diagnosticar | Verificar las herramientas y la extensión de VS Code. |
-| Consultar versiones y PDF | Ver commits con su autor y compilar versiones anteriores del documento sin cambiar el trabajo actual. |
+| Consultar y descargar versiones | Ver commits con su autor, generar su PDF y guardar una copia local independiente. |
+| Elegir el principal | Guardar qué proyecto y archivo `.tex` utilizarás para las compilaciones habituales. |
 
 El programa usa únicamente la biblioteca estándar de Python: **no necesitas ejecutar `pip install`**. LaTeX, Git y VS Code son aplicaciones externas.
 
@@ -68,9 +70,21 @@ Al abrir el menú por primera vez:
 1. Elige **1 — Instalar herramientas**. Revisa los mensajes; algunas instalaciones requieren permisos de administrador.
 2. Cierra y vuelve a abrir el lanzador.
 3. Elige **8 — Diagnóstico** para comprobar qué herramientas están disponibles.
-4. Elige **3 — Configurar un proyecto** para descargar, crear o registrar tu documento.
+4. Usa **3 — Abrir un proyecto desde una carpeta de la PC** si ya tienes sus archivos. Para crear un documento o descargar un repositorio por primera vez, utiliza **11**.
 
 La descarga de herramientas y paquetes requiere internet y puede ocupar varios GB. La duración depende del equipo y de los paquetes seleccionados.
+
+## Abrir y continuar tu proyecto
+
+La opción **3** abre una carpeta que ya está en tu PC. Pega su ruta o escribe **E** para seleccionarla desde una ventana. También puedes indicar el archivo principal `.tex` o `OVK-GD.proyecto.json`.
+
+La aplicación conserva la ubicación elegida y el archivo principal, de modo que al cerrar y abrir el lanzador puedes continuar con **5 — Compilar PDF** o **6 — Abrir en VS Code**. El menú muestra la carpeta y la URL del proyecto.
+
+Al crear o registrar un proyecto se guarda **`OVK-GD.proyecto.json` dentro de su carpeta**, con el nombre, la URL de GitHub/GitLab y el `.tex` principal. Al abrirlo, esos datos se reutilizan: no tienes que volver a escribir la URL ni descargar otra copia. Si la carpeta ya era un clon de Git, se obtiene el enlace de su configuración existente.
+
+Abrir es una operación local. Para incorporar cambios del equipo utiliza después **4 — Sincronizar**. Si mueves la carpeta, vuelve a seleccionarla con **3**; la ruta local se actualiza y los datos del proyecto se conservan.
+
+Usa **11 — Crear un proyecto nuevo o descargar de GitHub** para preparar un proyecto nuevo o hacer su primera descarga. Dentro de ese asistente también puedes conectar una carpeta local a GitHub/GitLab una sola vez, conservando sus archivos.
 
 ## Tu rutina de trabajo
 
@@ -81,18 +95,24 @@ La descarga de herramientas y paquetes requiere internet y puede ocupar varios G
 
 Al sincronizar, OVK-GD guarda los cambios locales, incorpora los del remoto mediante una mezcla de Git y después intenta subir el resultado. Si falta conexión, puedes conservar commits locales para enviarlos después. Si aparece un conflicto, consulta el [procedimiento del manual](MANUAL_OVK-GD.md#6-resolver-conflictos).
 
-## Versiones anteriores: elige un commit y genera su PDF
+## Versiones del documento: consultar, descargar y compilar
 
-La opción **9 — Historial: versiones anteriores y compilar su PDF** abre un submenú del proyecto seleccionado.
+La opción **9 — Historial: PDF, descargar versiones y elegir principal** abre el historial del proyecto seleccionado.
 
 - Muestra inicialmente hasta **10 commits**, con identificador, descripción, autor y fecha. Incluye al menos cinco versiones anteriores si hay seis o más commits disponibles.
-- Escribe el **número del commit** para compilar esa versión en una carpeta independiente.
+- Escribe el **número del commit** para abrir sus acciones: **1**, compilar su PDF; **2**, guardar la versión en una carpeta local; **3**, descargarla y utilizarla como proyecto principal.
 - Usa **M** para mostrar diez commits más, **R** para consultar la rama remota tras descargar su historial y **L** para volver al historial local.
 - El PDF se conserva con el identificador del commit en el nombre, junto con sus fuentes y un archivo `version.json`.
 
 Tus archivos actuales, los cambios sin commit, la rama y el índice de Git se conservan. La actualización del historial usa `git fetch`; la compilación histórica exporta el commit sin cambiar la revisión activa.
 
-Los resultados se guardan normalmente en `~/.ovk-gd/versiones/`. La aplicación muestra la ubicación exacta y abre el PDF cuando la compilación termina correctamente. Consulta el [manual del historial](MANUAL_OVK-GD.md#11-versiones-anteriores-y-pdf) para los requisitos y detalles.
+Las consultas en PDF se guardan normalmente en `~/.ovk-gd/versiones/`. Para **descargar una versión**, eliges una carpeta nueva; se propone una dentro de `Proyectos_OVK-GD`. La copia conserva los archivos e historial Git del commit seleccionado y se prepara en una rama propia para que puedas seguir editando.
+
+Si eliges **3 — Descargar y usar como proyecto principal**, la opción **5 — Compilar PDF** utilizará el `.tex` seleccionado en esa copia. La elección se conserva al cerrar y abrir la aplicación. Si hay varios documentos principales, puedes elegir cuál utilizar.
+
+Usa **10 — Elegir proyecto y archivo principal de compilación** para regresar al proyecto original o seleccionar otro archivo `.tex`. El menú muestra el proyecto, archivo y carpeta que están activos. Las acciones de sincronización, edición e historial también usan el proyecto principal seleccionado.
+
+La descarga no publica cambios. Si después sincronizas la copia, se utiliza una rama `ovk-version-...` propia. Consulta el [manual del historial](MANUAL_OVK-GD.md#11-versiones-anteriores-y-pdf) para los detalles.
 
 ## Un documento, varios archivos
 
@@ -112,19 +132,24 @@ Copia **el contenido de `ejemplos/documento/` a una carpeta nueva**, fuera de es
 python OVK-GD.py --help
 python OVK-GD.py instalar
 python OVK-GD.py diagnostico
+python OVK-GD.py abrir "CARPETA_DEL_PROYECTO"
 python OVK-GD.py proyecto
 python OVK-GD.py sincronizar -m "Actualiza la introducción"
 python OVK-GD.py compilar
 python OVK-GD.py historial
 python OVK-GD.py historial --cantidad 20 --actualizar
 python OVK-GD.py compilar-version IDENTIFICADOR_DEL_COMMIT
+python OVK-GD.py descargar-version IDENTIFICADOR_DEL_COMMIT --principal
+python OVK-GD.py principal
 python OVK-GD.py auto
 python OVK-GD.py --simular instalar
 ```
 
 En macOS/Linux, usa `python3` si `python` no corresponde a Python 3. En Windows también puedes usar `py -3`.
 
-`--simular` permite inspeccionar la instalación o actualización sin ejecutarla. Se escribe **antes** del subcomando. Los comandos de proyecto, compilación y sincronización usan los proyectos registrados por la opción 3.
+`--simular` permite inspeccionar la instalación o actualización sin ejecutarla. Se escribe **antes** del subcomando. Los comandos de proyecto, compilación y sincronización usan los proyectos registrados en la aplicación.
+
+Cuando hay un proyecto principal seleccionado, los comandos lo utilizan directamente. El comando `principal` permite cambiar la selección.
 
 ## Qué incluye este repositorio
 

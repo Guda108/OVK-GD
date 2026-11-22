@@ -27,3 +27,7 @@ Las pruebas de Git usan repositorios temporales locales y no necesitan una cuent
 Las pruebas del historial crean varias revisiones y autores, exportan commits, simulan la frontera de compilación para comprobar el nombre del PDF y verifican que se conservan los cambios locales. También comprueban un `fetch` real entre repositorios locales y la ampliación de un clon superficial.
 
 Evita añadir dependencias solo para pequeñas utilidades y no incluyas archivos generados por las pruebas. Consulta [`docs/VALIDACION.md`](docs/VALIDACION.md) para conocer el alcance de la validación de esta entrega.
+
+Las pruebas de descarga comprueban las fuentes del commit, la independencia de la copia, la conservación del trabajo local y la sincronización en una rama propia. Las de selección principal comprueban su persistencia y el archivo `.tex` utilizado al compilar.
+
+Las pruebas de apertura comprueban que no se clona ni se pide la URL al reabrir. También verifican la persistencia del enlace, el cambio de ubicación de la carpeta y la conservación de la conexión Git existente.

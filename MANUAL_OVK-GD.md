@@ -17,6 +17,7 @@
 9. [Instalación manual](#9-instalación-manual)
 10. [Referencia de comandos](#10-referencia-de-comandos)
 11. [Versiones anteriores y PDF](#11-versiones-anteriores-y-pdf)
+12. [Elegir el proyecto y archivo principal](#12-elegir-el-proyecto-y-archivo-principal)
 
 ## 1. Qué necesitas
 
@@ -120,18 +121,50 @@ La primera configuración pide tu nombre y correo si Git aún no los tiene. Esto
 
 ## 4. Configurar un documento
 
-Elige **3 — Configurar un proyecto**.
+Para continuar con archivos que ya están en tu PC, elige **3 — Abrir un proyecto desde una carpeta de la PC**. Pega la ruta o escribe **E** para explorar carpetas. También puedes indicar un archivo `.tex` principal o el archivo `OVK-GD.proyecto.json`.
 
-| Opción | Cuándo usarla | Resultado |
+La apertura utiliza esa ubicación, conserva sus archivos y reutiliza la URL guardada. No vuelve a clonar el repositorio ni pide su enlace. El proyecto queda seleccionado para compilar, editar y consultar el historial. La próxima vez que abras OVK-GD, el menú mostrará esa carpeta y su archivo principal.
+
+Para preparar un documento nuevo o descargar uno por primera vez, utiliza **11 — Crear un proyecto nuevo o descargar de GitHub**:
+
+| Opción dentro de 11 | Cuándo usarla | Resultado |
 |---|---|---|
 | 1. Descargar | El equipo ya tiene un repositorio. | Clona sus archivos en tu computadora. |
 | 2. Crear | Comienzas un documento nuevo. | Crea un repositorio local y un `main.tex` de ejemplo. |
-| 3. Usar una carpeta | Ya tienes archivos, por ejemplo un ZIP de Overleaf extraído. | Registra la carpeta y crea Git si falta. |
+| 3. Abrir una carpeta | Ya tienes archivos en tu computadora. | Abre localmente, igual que la opción 3 del menú principal. |
+| 4. Conectar una carpeta | Tienes archivos locales y deseas compartirlos mediante GitHub/GitLab. | Prepara Git en esa carpeta y guarda su enlace sin clonar otra copia. |
 
 La ubicación propuesta es `Proyectos_OVK-GD` dentro de tu carpeta de usuario. Puedes elegir otra. El registro de proyectos se guarda en `~/.ovk-gd/proyectos.json`.
 
+Para compartir un documento nuevo, pega el enlace del repositorio vacío durante la creación y acepta sincronizar. Los demás integrantes usan **11 → 1 — Descargar** una sola vez. Después continúan desde su carpeta local. Crear un proyecto local no crea por sí mismo el repositorio en GitHub.
 
-Para compartir un documento nuevo, pega el enlace del repositorio vacío cuando se solicite y acepta sincronizar. Los demás integrantes usan la opción **1 — Descargar**. Crear un proyecto local no crea por sí mismo el repositorio en GitHub.
+### URL y archivo principal guardados en el proyecto
+
+El archivo **`OVK-GD.proyecto.json`** se guarda en la carpeta del documento y contiene datos como estos:
+
+```json
+{
+  "name": "mi_tesis",
+  "url": "https://github.com/TU_USUARIO/mi_tesis.git",
+  "remote": "origin",
+  "main": "main.tex"
+}
+```
+
+La URL se guarda al crear o descargar el proyecto. Si abres una carpeta Git que todavía no tiene este archivo, OVK-GD lo crea tomando la URL de su remoto existente. El archivo principal se conserva como una ruta relativa: puedes mover la carpeta y volver a abrirla con la opción 3.
+
+Si Git conserva una conexión distinta a la del archivo de datos, se utiliza la conexión que ya está configurada en Git. Si falta el remoto en un repositorio Git, se puede reconstruir a partir del enlace guardado, sin descargar archivos de nuevo. La URL guardada no sustituye la autenticación que Git pueda solicitar al sincronizar.
+
+También puedes abrir una carpeta LaTeX sin Git y sin URL para editar y compilar localmente. Abrirla no la convierte automáticamente en un repositorio ni pregunta por un enlace. Para compartirla, utiliza **11 → 4 — Conectar una carpeta local**; si tiene una URL guardada, se reutiliza. En otro caso la introduces una sola vez.
+
+### Volver a abrir después de cerrar el lanzador
+
+1. Abre el lanzador de OVK-GD y revisa la carpeta que aparece como principal.
+2. Si es correcta, continúa directamente con **5 — Compilar PDF** o **6 — Abrir en VS Code**.
+3. Para cambiar de ubicación, elige **3**, escribe **E** o pega la ruta real de tu proyecto.
+4. Selecciona la carpeta que contiene tus archivos; el enlace se recupera del proyecto.
+
+Si la ruta no existe, OVK-GD avisa y conserva la selección actual. No descarga una copia en otra ubicación como alternativa.
 
 Si no existen, OVK-GD añade:
 
@@ -164,7 +197,7 @@ Los archivos de más de 90 MiB se excluyen del commit como margen preventivo par
 
 ### Compilar desde el menú
 
-La opción **5** busca archivos `.tex` que contengan `\documentclass`. Prefiere uno llamado `main.tex`; si hay varias alternativas sin ese nombre, permite elegir.
+La opción **5** utiliza el archivo principal que hayas seleccionado con la opción 10. Si todavía no hay una selección, busca archivos `.tex` que contengan `\documentclass`, prefiere uno llamado `main.tex` y permite elegir cuando hay varias alternativas sin ese nombre.
 
 Ejecuta `latexmk -cd -pdf` con mensajes de error por archivo y línea. La opción `-cd` permite compilar el principal en su propia subcarpeta y resolver sus entradas relativas. El PDF se genera normalmente junto al archivo principal y se intenta abrir con el visor del sistema.
 
@@ -270,6 +303,7 @@ Ejecuta desde la carpeta de OVK-GD. En macOS/Linux puedes necesitar `python3`; e
 | `python OVK-GD.py instalar` | Preparar herramientas. |
 | `python OVK-GD.py actualizar` | Intentar actualizarlas. |
 | `python OVK-GD.py proyecto` | Descargar, crear o registrar un documento. |
+| `python OVK-GD.py abrir "CARPETA_DEL_PROYECTO"` | Abrir una carpeta existente y reutilizar su configuración. |
 | `python OVK-GD.py sincronizar -m "Descripción"` | Guardar, descargar y subir. |
 | `python OVK-GD.py sincronizar --auto` | Una sincronización sin preguntas de OVK-GD. |
 | `python OVK-GD.py auto` | Sincronización periódica hasta `Ctrl+C`. |
@@ -278,19 +312,22 @@ Ejecuta desde la carpeta de OVK-GD. En macOS/Linux puedes necesitar `python3`; e
 | `python OVK-GD.py historial` | Consultar commits y elegir uno para compilar. |
 | `python OVK-GD.py historial --cantidad 20 --actualizar` | Descargar referencias remotas y abrir el historial con hasta 20 commits. |
 | `python OVK-GD.py compilar-version IDENTIFICADOR` | Compilar un commit conocido en una carpeta independiente. |
+| `python OVK-GD.py descargar-version IDENTIFICADOR` | Guardar una copia local independiente de un commit. |
+| `python OVK-GD.py descargar-version IDENTIFICADOR --destino CARPETA --principal` | Descargar en una carpeta nueva y utilizar esa copia para las compilaciones habituales. |
+| `python OVK-GD.py principal` | Elegir proyecto y archivo `.tex` principal. |
 | `python OVK-GD.py --simular instalar` | Mostrar la instalación sin ejecutarla. |
 | `python OVK-GD.py --simular actualizar` | Mostrar la actualización sin ejecutarla. |
 
-Si hay varios proyectos registrados, el programa pide cuál utilizar. `--auto` no elimina esa selección, por lo que esta versión requiere adaptación adicional para programar tareas completamente desatendidas con varios proyectos.
+Los comandos utilizan el proyecto principal seleccionado. Si no hay uno y existen varios proyectos registrados, preguntan cuál utilizar. `--auto` evita las preguntas de sincronización de OVK-GD, pero no sustituye la selección de un proyecto cuando aún no se ha definido uno principal.
 
 ## 11. Versiones anteriores y PDF
 
 ### Abrir el historial
 
 1. Abre **OVK-GD_windows.bat** en Windows o **OVK-GD_mac_linux.command** en macOS/Linux.
-2. Elige **9 — Historial: versiones anteriores y compilar su PDF**.
-3. Selecciona el proyecto cuando tengas varios registrados.
-4. Revisa la lista y escribe el número de la versión que deseas compilar.
+2. Elige **9 — Historial: PDF, descargar versiones y elegir principal**.
+3. Se utiliza el proyecto principal. Si todavía no hay uno seleccionado y tienes varios registrados, el programa pregunta cuál consultar.
+4. Revisa la lista y escribe el número de la versión para abrir sus acciones.
 
 Se muestran hasta **10 commits** de la rama local al abrir el submenú. Cada entrada incluye un identificador corto, la descripción, el nombre del autor registrado en Git y la fecha con su zona horaria. El commit activo tiene la marca `[HEAD local]`.
 
@@ -302,7 +339,7 @@ El nombre mostrado corresponde al **autor registrado en Git**. Puede diferir del
 
 | Opción | Acción |
 |---|---|
-| Número de una entrada | Exportar y compilar ese commit. |
+| Número de una entrada | Abrir las acciones de ese commit: PDF, descargar o usar como principal. |
 | `M` | Aumentar la lista en diez commits. |
 | `R` | Descargar el historial del remoto y mostrar la rama remota correspondiente. |
 | `L` | Volver a los commits alcanzables desde la revisión local. |
@@ -311,6 +348,29 @@ El nombre mostrado corresponde al **autor registrado en Git**. Puede diferir del
 `R` utiliza el remoto `origin` o, si no existe, el primero configurado. Ejecuta `git fetch`, que puede pedir autenticación. Actualiza las referencias de Git, sin mezclar archivos ni subir cambios. Si la descarga falla, puedes seguir consultando los commits disponibles localmente.
 
 En una copia superficial de Git, como una creada con `--depth=1`, `R` intenta descargar hasta 50 niveles adicionales. El número final depende del historial del servidor. Si no existe una rama remota correspondiente, se mantiene la vista local.
+
+### Acciones de un commit
+
+Después de seleccionar su número, aparece este menú:
+
+| Opción | Acción |
+|---|---|
+| 1 | Exportar el commit en una carpeta de consulta, compilarlo y abrir su PDF. |
+| 2 | Guardar una copia completa del proyecto en una carpeta local nueva. |
+| 3 | Guardar la copia y seleccionarla como proyecto principal para editar y compilar. |
+| 0 | Volver a la lista de commits. |
+
+Para descargar, escribe una carpeta que todavía no exista. La ubicación sugerida es `Proyectos_OVK-GD/nombre-del-proyecto-COMMIT`, dentro de tu carpeta de usuario. Puedes elegir otra ubicación fuera del proyecto de origen. La herramienta rechaza carpetas existentes para conservar su contenido.
+
+La copia contiene los archivos guardados en el commit elegido y conserva un repositorio Git independiente, con una rama propia llamada `ovk-version-...`. Se registra en OVK-GD para que puedas seleccionarla posteriormente. Los cambios sin commit o archivos sin seguimiento del proyecto original permanecen allí y no se incorporan a la descarga.
+
+La descarga utiliza la información Git que ya está disponible en tu equipo. Si el commit está en GitHub y aún no aparece, utiliza antes **R** para obtener su historial. No necesitas tener LaTeX instalado para guardar la copia.
+
+Si utilizas la opción **3**, se elige su archivo principal `.tex`. Cuando hay varios, puedes seleccionar uno, aunque otro se llame `main.tex`. La opción **5 — Compilar PDF** del menú general utiliza ese archivo a partir de entonces. La selección se guarda y permanece después de reiniciar la aplicación.
+
+El proyecto de origen conserva sus archivos, índice y rama. El historial de una copia parte del commit elegido; para consultar el historial del proyecto original, selecciónalo con la opción 10. La descarga no publica cambios en GitHub. Si más adelante sincronizas la copia, se utilizará su rama propia; el proyecto original permanece registrado y puedes volver a él con la opción **10**.
+
+Las copias pueden contener el historial completo disponible, por lo que su tamaño puede superar el de los archivos de un solo commit. Los recursos externos, submódulos o archivos gestionados por Git LFS pueden necesitar preparación adicional.
 
 ### Cómo se genera el PDF histórico
 
@@ -334,7 +394,7 @@ Si esa ubicación estuviera dentro del proyecto, el programa utiliza una carpeta
 
 ### Requisitos de las versiones históricas
 
-- Debes usar un proyecto con historial Git. Un ZIP descargado desde GitHub no incluye la carpeta `.git`; descarga el proyecto mediante la opción 3 → 1 para conservar su historial.
+- Debes usar un proyecto con historial Git. Un ZIP descargado desde GitHub no incluye la carpeta `.git`; descarga el proyecto mediante la opción 11 → 1 para conservar su historial.
 - La compilación necesita las herramientas LaTeX instaladas. Se aplica el mismo motor `pdflatex` que usa la opción 5.
 - Solo se exportan archivos presentes en ese commit y permitidos por las reglas de `git archive`. Los archivos ignorados, cambios sin commit y dependencias externas no se incorporan desde tu copia actual.
 - Los recursos gestionados mediante Git LFS o submódulos pueden requerir preparación adicional. La exportación no descarga automáticamente esos contenidos.
@@ -346,6 +406,25 @@ Si esa ubicación estuviera dentro del proyecto, el programa utiliza una carpeta
 python OVK-GD.py historial
 python OVK-GD.py historial --cantidad 20 --actualizar
 python OVK-GD.py compilar-version IDENTIFICADOR_DEL_COMMIT
+python OVK-GD.py descargar-version IDENTIFICADOR_DEL_COMMIT --principal
 ```
 
-Sustituye `IDENTIFICADOR_DEL_COMMIT` por el código corto o completo mostrado en el historial. El programa sigue utilizando el proyecto registrado que selecciones.
+Sustituye `IDENTIFICADOR_DEL_COMMIT` por el código corto o completo mostrado en el historial. Los comandos utilizan el proyecto principal o permiten elegir uno si todavía no hay una selección guardada.
+
+## 12. Elegir el proyecto y archivo principal
+
+La opción **10 — Elegir proyecto y archivo principal de compilación** permite cambiar de proyecto sin volver a descargarlo:
+
+1. Elige el proyecto de la lista de registrados, incluido el original o alguna copia descargada.
+2. Si contiene varios archivos `.tex` con `\documentclass`, elige el que deseas compilar.
+3. Revisa en el menú general el proyecto, archivo y carpeta que quedaron activos.
+
+La opción **5** y el comando `compilar` utilizan ese archivo. Las opciones **4**, **6**, **7** y **9** utilizan el mismo proyecto para sincronizar, abrir en VS Code, sincronizar periódicamente y consultar el historial. La configuración del editor y sus recetas de compilación se administran por separado.
+
+La selección activa se almacena en `~/.ovk-gd/principal.json`. El archivo principal y la URL del documento también se guardan en `OVK-GD.proyecto.json` dentro de su carpeta. Para cambiar la selección desde una terminal puedes ejecutar:
+
+```bash
+python OVK-GD.py principal
+```
+
+Si el archivo seleccionado cambia de nombre o se elimina, la compilación avisa y permite elegir otro mediante la opción 10. Puedes cancelar la selección para conservar el principal actual.
