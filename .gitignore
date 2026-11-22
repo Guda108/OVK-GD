@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.coverage
+htmlcov/
+
+# Temporales de LaTeX; se conservan los PDF que se decidan publicar.
+*.aux
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.blg
+*.bcf
+*.run.xml
+_minted*/
+build/
+dist/
+
+# Configuracion local y sistema
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+*.swp

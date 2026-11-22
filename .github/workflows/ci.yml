@@ -1,0 +1,37 @@
+name: Comprobaciones
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-y-git:
+    name: ${{ matrix.os }} / Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ['3.13']
+        include:
+          - os: ubuntu-latest
+            python: '3.8'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Verificar sintaxis
+        run: python -m py_compile OVK-GD.py
+      - name: Probar Python y Git con repositorios locales
+        run: python -m unittest discover -s tests -v
+      - name: Verificar ayuda
+        run: python OVK-GD.py --help
+      - name: Verificar lanzador de shell
+        if: runner.os != 'Windows'
+        run: bash -n OVK-GD_mac_linux.command

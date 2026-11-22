@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="480" viewBox="0 0 1280 480" role="img" aria-labelledby="title desc">
+  <title id="title">OVK-GD</title>
+  <desc id="desc">Compila LaTeX en tu computadora y sincroniza con tu equipo. Windows, macOS y Linux.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#101827"/><stop offset="1" stop-color="#080d18"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" x2="1">
+      <stop stop-color="#66ead1"/><stop offset="1" stop-color="#8797ff"/>
+    </linearGradient>
+    <pattern id="grid" width="36" height="36" patternUnits="userSpaceOnUse">
+      <path d="M36 0H0V36" fill="none" stroke="#243047" stroke-width="0.6"/>
+    </pattern>
+  </defs>
+  <rect width="1280" height="480" rx="24" fill="url(#background)"/>
+  <rect x="760" width="520" height="480" rx="24" fill="url(#grid)" opacity="0.38"/>
+  <rect x="1" y="1" width="1278" height="478" rx="23" fill="none" stroke="#26334a"/>
+  <rect x="56" y="48" width="52" height="52" rx="14" fill="#172c35" stroke="#325c60"/>
+  <path d="M74 62l-8 12 8 12M90 62l8 12-8 12M84 61l-5 26" fill="none" stroke="#7af0d6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="126" y="80" fill="#99a9bf" font-family="DejaVu Sans,Arial,sans-serif" font-size="13" letter-spacing="2.8">Dr. Gerardo Diaz</text>
+  <text x="52" y="184" fill="#f2f6fc" font-family="DejaVu Sans,Arial,sans-serif" font-size="76" font-weight="bold" letter-spacing="-3">OVK-GD<tspan fill="#74ead2">.</tspan></text>
+  <text x="58" y="242" fill="#dce5f3" font-family="DejaVu Sans,Arial,sans-serif" font-size="27">Tu documento. Tu equipo.</text>
+  <text x="58" y="280" fill="#dce5f3" font-family="DejaVu Sans,Arial,sans-serif" font-size="27">Tu computadora.</text>
+  <rect x="58" y="314" width="72" height="4" rx="2" fill="url(#accent)"/>
+  <text x="58" y="354" fill="#94a6bf" font-family="DejaVu Sans,Arial,sans-serif" font-size="16">Compila PDF y comparte cambios con Git.</text>
+  <rect x="58" y="393" width="96" height="31" rx="15" fill="#192337" stroke="#2e3d57"/>
+  <rect x="164" y="393" width="86" height="31" rx="15" fill="#192337" stroke="#2e3d57"/>
+  <rect x="260" y="393" width="74" height="31" rx="15" fill="#192337" stroke="#2e3d57"/>
+  <text x="106" y="414" text-anchor="middle" fill="#bfccdf" font-family="DejaVu Sans,Arial,sans-serif" font-size="12">Windows</text>
+  <text x="207" y="414" text-anchor="middle" fill="#bfccdf" font-family="DejaVu Sans,Arial,sans-serif" font-size="12">macOS</text>
+  <text x="297" y="414" text-anchor="middle" fill="#bfccdf" font-family="DejaVu Sans,Arial,sans-serif" font-size="12">Linux</text>
+  <rect x="686" y="66" width="534" height="348" rx="16" fill="#0f1725" stroke="#34435c"/>
+  <path d="M702 66h502a16 16 0 0 1 16 16v31H686V82a16 16 0 0 1 16-16" fill="#1a2538"/>
+  <circle cx="709" cy="90" r="4.5" fill="#ff9c9c"/><circle cx="727" cy="90" r="4.5" fill="#f0cf8d"/><circle cx="745" cy="90" r="4.5" fill="#77dcb2"/>
+  <text x="953" y="95" text-anchor="middle" fill="#9cabc0" font-family="DejaVu Sans Mono,monospace" font-size="12">un flujo sencillo</text>
+  <text x="716" y="153" fill="#75e8d0" font-family="DejaVu Sans Mono,monospace" font-size="13">$ python OVK-GD.py</text>
+  <text x="716" y="201" fill="#8d9bb1" font-family="DejaVu Sans Mono,monospace" font-size="13">01</text>
+  <text x="754" y="201" fill="#e0e8f4" font-family="DejaVu Sans,Arial,sans-serif" font-size="17">Prepara las herramientas</text>
+  <path d="M722 216v17" stroke="#3e526e" stroke-width="2"/>
+  <text x="716" y="261" fill="#8d9bb1" font-family="DejaVu Sans Mono,monospace" font-size="13">02</text>
+  <text x="754" y="261" fill="#e0e8f4" font-family="DejaVu Sans,Arial,sans-serif" font-size="17">Escribe y compila tu documento</text>
+  <path d="M722 276v17" stroke="#3e526e" stroke-width="2"/>
+  <text x="716" y="321" fill="#8d9bb1" font-family="DejaVu Sans Mono,monospace" font-size="13">03</text>
+  <text x="754" y="321" fill="#e0e8f4" font-family="DejaVu Sans,Arial,sans-serif" font-size="17">Sincroniza con tu equipo</text>
+  <rect x="712" y="354" width="482" height="35" rx="8" fill="#122c2d"/>
+  <circle cx="730" cy="371" r="4" fill="#78e9cc"/>
+  <text x="746" y="376" fill="#9de8d6" font-family="DejaVu Sans,Arial,sans-serif" font-size="13">Historial de cambios · Compilación local</text>
+</svg>

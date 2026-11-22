@@ -1,0 +1,28 @@
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{amsmath}
+\usepackage{hyperref}
+
+\title{Un documento, varios autores}
+\author{Equipo de trabajo}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Este ejemplo muestra cómo separar un documento en archivos para facilitar
+la colaboración mediante Git y compilarlo localmente con OVK-GD.
+\end{abstract}
+
+\input{secciones/introduccion}
+\input{secciones/metodologia}
+
+\section{Conclusiones}
+Cada integrante puede editar una sección distinta y sincronizar sus cambios
+al comenzar y al terminar su sesión de trabajo.
+
+\end{document}
