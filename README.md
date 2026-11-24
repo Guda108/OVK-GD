@@ -171,9 +171,3 @@ Cuando hay un proyecto principal seleccionado, los comandos lo utilizan directam
 - El proyecto incluye un flujo de GitHub Actions para comprobar Python y Git en Windows, macOS y Linux. Los resultados aparecen después de publicar y ejecutar el flujo; esto no valida los instaladores completos.
 
 La validación realizada para esta entrega se describe en [`docs/VALIDACION.md`](docs/VALIDACION.md).
-
-## Contribuir y licencia
-
-Consulta [`CONTRIBUTING.md`](CONTRIBUTING.md) para proponer mejoras o reportar un problema. Usa la pestaña **Issues** del repositorio donde se publique el proyecto.
-
-**Licencia pendiente de elección por el titular.** Este paquete no añade una licencia de redistribución. La guía de publicación explica dónde agregarla cuando se decida.
